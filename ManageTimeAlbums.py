@@ -4,7 +4,11 @@ from datetime import date
 from datetime import datetime
 from datetime import timedelta
 from num2words import num2words
+from os import environ
+from dotenv import load_dotenv
 
+
+load_dotenv()
 
 def getDateRangeFromWeek(p_year,p_week):
 
@@ -28,7 +32,7 @@ def ManageAlbum(session, queryString, title, count=100):
         p.remove_album(albumname=title)
         return False
 
-pp_session = Session("admin", "2qG0VBiGeskD", "photos.dlgreen.com", use_https=True)
+pp_session = Session(environ.get('USER'), environ.get('PASS'), environ.get('DOMAIN'), use_https=True)
 pp_session.create()
 
 #get the oldest photo in library
