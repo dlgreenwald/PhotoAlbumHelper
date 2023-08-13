@@ -1,3 +1,4 @@
+#!/usr/local/bin/python3
 from photoprism.Session import Session
 from photoprism.Photo import Photo
 import pandas as pd
@@ -9,17 +10,23 @@ import hashlib
 
 load_dotenv()
 
+def log(message):
+    print ("Timeline Events: {0}".format(message))
+
+if environ.get('TRIALRUN')=="False":
+    log( "TRIALRUN is False, commiting changes")
+else:
+    log( "TRIALRUN is True, no changes will be commited")
+
 pp_session = Session(environ.get('USER'), environ.get('PASS'), environ.get('DOMAIN'), use_https=True)
 pp_session.create()
 p = Photo(pp_session)
 
 def search(query, count=100, offset=0, order="newest"):
-    """Basic search function. Returns a Dict object based upon the returned JSON"""
     _, data = pp_session.req(f"/photos?count={count}&offset={offset}&merged=true&country=&camera=0&lens=0&label=&year=0&month=0&color=&order={order}&q={query}&public=true&quality=3", "GET")
     return data
 
 def create_album(title, description, category):
-    """Create an album, returns a boolean if it worked"""
     data = {"Title":title,"Favorite":False, "Notes": description, "Category":category}
     status_code, output = pp_session.req("/albums", "POST", data=data)
 
@@ -29,7 +36,6 @@ def create_album(title, description, category):
     return False
 
 def update_album(uid, title, description, category):
-    """Create an album, returns a boolean if it worked"""
     data = {"Title":title,"Favorite":False, "Notes": description, "Category":category}
     status_code, output = pp_session.req(f"/albums/{uid}", "PUT", data=data)
 
@@ -59,7 +65,6 @@ def find_album_by_note(note):
     return uid
 
 def replace_album_from_query(query, albumname, albumid, albumcategory, count=1000000, offset=0, order="newest"):
-        """Provide a search query and add all photos that are returned into an album. Provide the albumname, not the UID of the album."""
         album_uid = findOrCreateAlbumById(albumname, albumid, albumcategory)
         remove_photos_from_album_by_uid(album_uid)
         photolist = p.get_uid_list_of_search(query, count=count, offset=offset, order=order)
@@ -67,7 +72,6 @@ def replace_album_from_query(query, albumname, albumid, albumcategory, count=100
         return result
 
 def remove_photos_from_album_by_uid(album_uid, photos=False, count=1000000):
-    """Remove photos from an album, Returns True if successfull"""
     albumname = p.get_album(album_uid)['Title']
     if photos == False:
         query = f"album:\"{albumname}\""
@@ -96,7 +100,6 @@ class FamilyCalendar(AbstractHolidayCalendar):
     ]
 
 def count_elements(seq) -> dict:
-    """Tally elements from `seq`."""
     hist = {}
     for i in seq:
         hist[i] = hist.get(i, 0) + 1
@@ -147,7 +150,7 @@ def determineName(PossibleCities, PossibleStates, PossibleCountries):
     return PossibleName
                  
 data = search(query="type:image|live", count=10000, offset=0,  order="newest")
-print("results:{0}".format(len(data)))
+log("Number of Photos in timeline (max 10k most recent):{0}".format(len(data)))
 
 #collect all photos into a timeline
 timeline = []
@@ -183,12 +186,13 @@ c = 2
 min_t = Q1 - c*IQR
 max_t = Q3 + c*IQR
 
-print("min_t:{0} max_t:{1}".format(min_t, max_t))
+log("Calculating Anomoly Thresholds (min_t:{0} max_t:{1})".format(min_t, max_t))
 #mark rows which exceed threshold
 df_daily[col+'threshold_alarm'] = (df_daily[col].clip(lower = min_t,upper=max_t) != df_daily[col])
 
 #filter out any dates which don't cross the threshold
 rslt_df = df_daily[df_daily['Countthreshold_alarm']].reset_index()
+log("Finding Anomolies in timeline (Count:{0})".format(len(rslt_df)))
 
 #Setup for merging contigious dates.  Each column has a start and and end that match.
 #ID column is needed for groupby later
@@ -205,13 +209,14 @@ event_date_ranges = rslt_df.groupby("id", as_index=False).apply(
     )
     .agg({"start_date": "min", "end_date": "max", "holiday":"first"})
 ).reset_index(drop=True)
+log("Merging contigious dates(Count:{0})".format(len(event_date_ranges)))
 
 #If the photos ramp up or down slowly or there is a single day in the middle we want to include those.  
 #Attempting to get it on the contigious gets missed days, but doesn't handle the rising/falling edge.
 df_daily['DateP1'] = df_daily['Date'] - pd.Timedelta(days=1)
 df_daily['DateM1'] = df_daily['Date'] + pd.Timedelta(days=1)
 
-
+log("Applying rising edge event expansion")
 #Find Edges out by minus one day.
 DayMinus1 = pd.merge(event_date_ranges, df_daily, left_on="start_date", right_on="DateM1").drop(columns=[  'DateM1', 'DateP1', 'Countthreshold_alarm'])
 mask = DayMinus1["Count"]>=10
@@ -232,6 +237,8 @@ DayMinus2.loc[maskboth, "holiday_x"] = DayMinus2.loc[maskboth, "holiday_y"]
 DayMinus2.rename(columns={'holiday_x':'holiday'}, inplace=True)
 DayMinus2.drop(columns=[ 'holiday_y', 'Count', 'Date'], inplace=True)
 
+
+log("Applying falling edge event expansion")
 #Find Edges out by plus one days.
 DayPlus1 = pd.merge(DayMinus2, df_daily, left_on="end_date", right_on="DateP1").drop(columns=[ 'DateM1', 'DateP1', 'Countthreshold_alarm'])
 mask = DayPlus1["Count"]>=10
@@ -261,6 +268,7 @@ event_date_ranges2 = DayPlus2.groupby("id", as_index=False).apply(
     )
     .agg({"start_date": "min", "end_date": "max", "holiday":"first"})
 ).reset_index(drop=True)
+log("Recheck for contigious events post rising/falling edge expansion (Count:{0})".format(len(event_date_ranges2)))
 
 #Now we have a dataframe with good date ranges, holidays for anomolys in the rate of picture taking.  Lets do a few more operations to make later code a bit easier
 event_date_ranges2['end_date+1'] = event_date_ranges2['end_date'] + pd.Timedelta(days=1)
@@ -290,6 +298,7 @@ daytripphrase = "A day in {0} {1} {2} {3}"
 holidayphrase = "{0} in {1} {2}"
 
 # for each query calucate a location string, select a phrase to use, and check if an album with note=query hash already exists and if not create the album
+log("Creating Event Albums")
 for query in queries:
     data = p.search(query=query['query'], count=1000, offset=0,  order="newest")
     PossibleCities = []
@@ -316,5 +325,10 @@ for query in queries:
 
     uid = find_album_by_note(hash)
     if uid=='':
-        print("Generating "+Phrase.format(location, query['year'])+":{0}".format(query['query']))
-        replace_album_from_query(query['query'], Phrase, hash , "Generated Event")
+        log("Album with query '{0}' (Hash:{1}) does not exist...creating".format(query['query'], hash))
+        if environ.get('TRIALRUN')=="False":
+            log("Generating "+Phrase.format(location, query['year'])+":{0}".format(query['query'], hash))
+            replace_album_from_query(query['query'], Phrase, hash , "Generated Event")
+    else:
+        log("Album with query '{0}' (Hash:{1}) already created...ignoring".format(query['query'], hash))
+log("Done")
