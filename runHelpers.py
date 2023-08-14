@@ -5,17 +5,21 @@ import time
 import timelineEvents
 import ManageTimeAlbums
 import heartbeat
+import sys
+import threading
 
-schedule.every(30).minutes.do(heartbeat.beat)
-schedule.every().saturday.do(timelineEvents.detectAndCreateEvents)
-schedule.every().sunday.do(ManageTimeAlbums.createInPastAlbums)
+def run_threaded(job_func):
+    job_thread = threading.Thread(target=job_func)
+    job_thread.start()
 
+
+# I didn't like the format of the print output of the schedule so the format has been lifted and reused.
 def format(job):
         def format_time(t):
             return t.strftime("%Y-%m-%d %H:%M:%S") if t else "[never]"
 
         def is_repr(j):
-            return not isinstance(j, Job)
+            return not isinstance(j, schedule.Job)
 
         timestats = "(last run: %s, next run: %s)" % (
             format_time(job.last_run),
@@ -57,10 +61,17 @@ def format(job):
                 timestats=timestats,
             )
 
+
+print("Schedualing Jobs:")
+schedule.every(30).minutes.do(run_threaded, heartbeat.beat)
+schedule.every().saturday.do(run_threaded, timelineEvents.detectAndCreateEvents)
+schedule.every().sunday.do(run_threaded, ManageTimeAlbums.createInPastAlbums)
 all_jobs = schedule.get_jobs()
 for job in all_jobs:
     print(format(job))
 
 while True:
     schedule.run_pending()
+    #explicit flush to get logging in docker to work
+    sys.stdout.flush()
     time.sleep(1)
