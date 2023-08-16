@@ -20,6 +20,16 @@ def createInPastAlbums():
         lastdayofweek = firstdayofweek + timedelta(days=6.9)
         return firstdayofweek, lastdayofweek
 
+
+    def update_album(uid, title, category):
+        data = {"Title":title,"Favorite":False, "Category":category}
+        status_code, output = pp_session.req(f"/albums/{uid}", "PUT", data=data)
+
+        if status_code == 200:
+            return output
+        
+        return False
+
     def create_album(title, description="", category=""):
         data = {"Title":title,"Favorite":False, "Notes": description, "Category":category}
         status_code, output = pp_session.req("/albums", "POST", data=data)
@@ -38,7 +48,9 @@ def createInPastAlbums():
         else:
             log("Creating Album `{0}`".format(title))
             if environ.get('TRIALRUN')=="False":
-                create_album(title, category="In The Past")
+                body = create_album(title, category="In The Past")
+                uid = body['UID']
+                update_album(uid, title, category="In The Past")
         #Unlike all the other places where if TRIAL run is False we want to perform an action, 
         #in this case the second half of the if statement should only be run if trial run isnt' true. 
         #The OR should result in p.add... only being run if TRIALRUN is False
@@ -103,3 +115,6 @@ def createInPastAlbums():
         ManageAlbum(session=pp_session, queryString=queryString, title=title)
 
     log("Done")
+
+if __name__=="__main__":
+    createInPastAlbums()
