@@ -64,7 +64,7 @@ def format(job):
 
 print("Schedualing Jobs:")
 schedule.every(30).minutes.do(run_threaded, heartbeat.beat)
-schedule.every().saturday.do(run_threaded, timelineEvents.detectAndCreateEvents)
+schedule.every(1).day.at("01:00").do(run_threaded, timelineEvents.detectAndCreateEvents)
 schedule.every().sunday.do(run_threaded, ManageTimeAlbums.createInPastAlbums)
 all_jobs = schedule.get_jobs()
 for job in all_jobs:
