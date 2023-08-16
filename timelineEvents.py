@@ -4,10 +4,21 @@ from photoprism.Photo import Photo
 import pandas as pd
 from pandas.tseries.holiday import AbstractHolidayCalendar, Holiday, USLaborDay, USMemorialDay, USThanksgivingDay
 from pandas.tseries.offsets import Easter
+from pandas import DateOffset
 from os import environ
 from dotenv import load_dotenv
 import hashlib
 import datetime as dt  
+import json
+from dateutil.relativedelta import (
+    FR,
+    MO,
+    SA,
+    SU,
+    TH,
+    TU,
+    WE,
+)
 
 
 #@TODO need to create delay on the initial query to give a current event time to end....oh...or we could just ignore events that brush up against the current date.
@@ -30,8 +41,8 @@ def detectAndCreateEvents():
         _, data = pp_session.req(f"/photos?count={count}&offset={offset}&merged=true&country=&camera=0&lens=0&label=&year=0&month=0&color=&order={order}&q={query}&public=true&quality=3", "GET")
         return data
 
-    def create_album(title, description, category):
-        data = {"Title":title,"Favorite":False, "Notes": description, "Category":category}
+    def create_album(title, jsonData:dict, category):
+        data = {"Title":title,"Favorite":False, "Notes": json.dumps(jsonData), "Category":category}
         status_code, output = pp_session.req("/albums", "POST", data=data)
 
         if status_code == 200:
@@ -39,8 +50,8 @@ def detectAndCreateEvents():
         
         return False
 
-    def update_album(uid, title, description, category):
-        data = {"Title":title,"Favorite":False, "Notes": description, "Category":category}
+    def update_album(uid, title, jsonData:dict, category):
+        data = {"Title":title,"Favorite":False, "Notes": json.dumps(jsonData), "Category":category}
         status_code, output = pp_session.req(f"/albums/{uid}", "PUT", data=data)
 
         if status_code == 200:
@@ -48,16 +59,16 @@ def detectAndCreateEvents():
         
         return False
 
-    def findOrCreateAlbumById(name, id, category):
+    def findOrCreateAlbumById(name, jsonData:dict, category):
         albumlist = p.list_albums()
         uid = ""
         for album in albumlist:
-            if album['Notes']==id:
+            if album['Notes'] != "" and json.loads(album['Notes'])['Hash']==jsonData['Hash']:
                 uid = album['UID']
         if uid == "":
-            body = create_album(name, id, category)
+            body = create_album(name, jsonData, category)
             uid = body['UID']
-            update_album(uid, name, id, category)
+            update_album(uid, name, jsonData, category)
         return uid
 
     def find_album_by_note(note):
@@ -68,8 +79,30 @@ def detectAndCreateEvents():
                 uid = album['UID']
         return uid
 
-    def replace_album_from_query(query, albumname, albumid, albumcategory, count=1000000, offset=0, order="newest"):
-            album_uid = findOrCreateAlbumById(albumname, albumid, albumcategory)
+    #this is an expensive way to solve this problem as it iterates across the entire set of photos in albums, but with no dates in album metadata it is all we can do.    
+    def find_most_recent_album_date_in_category(category):
+        albumlist = p.list_albums()
+        uid = ""
+        recentDate = dt.datetime.strptime("1900-01-01T00:00:00Z", '%Y-%m-%dT%H:%M:%SZ')
+        for album in albumlist:
+            if album['Category']==category:
+                jsonData = json.loads(album['Notes'])
+                albumdatestring = "{0}-{1}-{2}".format(jsonData['year'], jsonData['month'], jsonData["day"])
+                albumdate = dt.datetime.strptime(albumdatestring, '%Y-%m-%d')
+                if albumdate > recentDate:
+                    recentDate = albumdate
+
+                # photos = search(query="type:image|live album:\"{0}\"".format(album['UID']), count=500, offset=0,  order="newest")
+                # for photo in photos:
+                #     # format 2023-08-15T22:17:34Z
+                #     date = dt.datetime.strptime(photo['TakenAt'], '%Y-%m-%dT%H:%M:%SZ')
+                #     if date > recentDate:
+                #         recentDate = date
+
+        return recentDate
+
+    def replace_album_from_query(query, albumname, jsonData:dict, albumcategory, count=1000000, offset=0, order="newest"):
+            album_uid = findOrCreateAlbumById(albumname, jsonData, albumcategory)
             remove_photos_from_album_by_uid(album_uid)
             photolist = p.get_uid_list_of_search(query, count=count, offset=offset, order=order)
             result = p.add_photos_to_album(photolist, album_uid)
@@ -101,6 +134,9 @@ def detectAndCreateEvents():
             Holiday("Easter", month=1, day=1, offset=[Easter()]),
             Holiday("Valentine's Day", month=2, day=14),
             Holiday("Halloween", month=10, day=31 ),
+            Holiday("St. Patrick's Day", month=3, day=17 ),
+            Holiday("Mother's Day", month=5, day=1, offset=DateOffset(weekday=SU(2))),
+            Holiday("Father's Day", month=6, day=1, offset=DateOffset(weekday=SU(3))),
         ]
 
     def count_elements(seq) -> dict:
@@ -117,15 +153,16 @@ def detectAndCreateEvents():
         #evaluate Cities for possible names
         counted = count_elements(PossibleCities)
         countedTotal = sum(counted.values())
-        for city in counted:
-            if counted[city]/countedTotal > .75:
-                PossibleName = city
-        if PossibleName == "":
-            keys = list(counted)
-            if (counted[keys[0]]+counted[keys[1]])/countedTotal > .75:
-                PossibleName = "{0} and {1}".format(keys[0], keys[1])
+        if PossibleName == "" and len(PossibleCities)>0:
+            for city in counted:
+                if counted[city]/countedTotal > .75:
+                    PossibleName = city
+            if PossibleName == "":
+                keys = list(counted)
+                if (counted[keys[0]]+counted[keys[1]])/countedTotal > .75:
+                    PossibleName = "{0} and {1}".format(keys[0], keys[1])
         
-        if PossibleName == "":
+        if PossibleName == "" and len(PossibleStates)>0:
             # Cities didn't work, evalate State now
             counted = count_elements(PossibleStates)
             countedTotal = sum(counted.values())
@@ -137,7 +174,7 @@ def detectAndCreateEvents():
                 if (counted[keys[0]]+counted[keys[1]])/countedTotal > .75:
                     PossibleName = "{0} and {1}".format(keys[0], keys[1])
         
-        if PossibleName == "":
+        if PossibleName == "" and len(PossibleCountries)>0:
             # State didn't work, evalate Country now
             counted = count_elements(PossibleCountries)
             countedTotal = sum(counted.values())
@@ -148,18 +185,29 @@ def detectAndCreateEvents():
                 keys = list(counted)
                 if (counted[keys[0]]+counted[keys[1]])/countedTotal > .75:
                     PossibleName = "{0} and {1}".format(keys[0], keys[1])
-            
+
+        if PossibleName == "":
+            # Nothing worked...perhaps we are looking at untagged photos.  Regardless, set possibleName to "Unknown"
+            PossibleName = "Unknown"    
+
         return PossibleName
 
-    data = search(query="type:image|live", count=10000, offset=0,  order="newest")
-    log("Number of Photos in timeline (max 10k most recent):{0}".format(len(data)))
-
-    #collect all photos into a timeline
+    count = 5000
+    offset = 0
     timeline = []
     ones = []
-    for photo in data:
-        timeline.append(photo['TakenAt'])
-        ones.append(1)
+    while data := search(query="type:image|live after:\"{0}\" before:{1}".format(environ.get('EARLIESTDATE'), environ.get('LATESTDATE')), count=count, offset=offset,  order="newest"):
+        if not len(data)>0:
+            log("Done building complete timeline")
+            break
+        log("Building complete timeline:+{0}".format(len(data)))
+
+        #collect all photos into a timeline
+        for photo in data:
+            timeline.append(photo['TakenAt'])
+            ones.append(1)
+        offset = offset+count
+    log("Number of Photos in timeline:{0}".format(len(timeline)))
 
     #turn the timeline into a dataframe
     df = pd.DataFrame(list(zip(timeline, ones)), columns=['Date', 'Count'])
@@ -187,6 +235,10 @@ def detectAndCreateEvents():
     c = 2
     min_t = Q1 - c*IQR
     max_t = Q3 + c*IQR
+
+    if max_t < 10:
+        log("Threshold for an event is calculated below 10.  This will result in a large number of events.  Exiting...")
+        return
 
     log("Calculating Anomoly Thresholds (min_t:{0} max_t:{1})".format(min_t, max_t))
     #mark rows which exceed threshold
@@ -283,6 +335,11 @@ def detectAndCreateEvents():
     event_date_ranges2["end_date"] = event_date_ranges2["end_date"].dt.date
     event_date_ranges2.fillna("None",inplace=True)
 
+    #Determine the most recent event that was already created...and filter out the older events
+    mostRecentDate = find_most_recent_album_date_in_category("Generated Event")
+    event_date_ranges2 = event_date_ranges2[event_date_ranges2["start_date"]>mostRecentDate.date()]
+    log("Drop any event with a start date earlier than the most recent generated album(Count:{0}, Date:{1})".format(len(event_date_ranges2), mostRecentDate))
+
     #Filter out any event which ends on today's date...it's still ongoing.
     event_date_ranges2 = event_date_ranges2[event_date_ranges2["end_date"]!=dt.date.today]
     log("Drop any event with an end date of today (Count:{0})".format(len(event_date_ranges2)))
@@ -308,7 +365,10 @@ def detectAndCreateEvents():
 
     # for each query calucate a location string, select a phrase to use, and check if an album with note=query hash already exists and if not create the album
     log("Creating Event Albums")
+    counter = 0
     for query in queries:
+        if query['length'] < int(environ.get('SHORTESTEVENT')):
+            continue
         data = p.search(query=query['query'], count=1000, offset=0,  order="newest")
         PossibleCities = []
         PossibleStates = []
@@ -331,16 +391,20 @@ def detectAndCreateEvents():
         m = hashlib.sha256()
         m.update(query['query'].encode('UTF-8'))
         hash = m.hexdigest()
+        query['Hash'] = hash
 
         uid = find_album_by_note(hash)
         if uid=='':
-            log("Album with query '{0}' (Hash:{1}) does not exist...creating".format(query['query'], hash))
+            log("Album with query '{0}' (Hash:{1}) does not exist".format(query['query'], hash))
             if environ.get('TRIALRUN')=="False":
-                log("Generating "+Phrase.format(location, query['year'])+":{0}".format(query['query'], hash))
-                replace_album_from_query(query['query'], Phrase, hash , "Generated Event")
+                log("\tGenerating "+Phrase.format(location, query['year'])+":{0}".format(query['query'], hash))
+                replace_album_from_query(query['query'], Phrase, query , "Generated Event")
+                counter = counter+1
+            else:
+                log("\tTRIAL RUN: Generate "+Phrase.format(location, query['year'])+":{0}".format(query['query'], hash))
         else:
             log("Album with query '{0}' (Hash:{1}) already created...ignoring".format(query['query'], hash))
-    log("Done")
+    log("{0} Events created.  Job Complete.".format(counter))
 
 if __name__=="__main__":
     detectAndCreateEvents()

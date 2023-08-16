@@ -16,13 +16,12 @@ PhotoAlbumHelper is provided is NOT affliated with [PhotoPrism](https://www.phot
 
  ## Future Improvements
  * Configurable Events (add birthday's or other holidays to the named list)
- * Albums for all photos, rather than just the first 10k
+ * Configurable Process Schedual (Currently Automatic Events runs nightly@1am and In the Past runs weekly, Sundays@midnight)
  * Quality tagging of individual photos based on Neural Image Assesment and the Aesthetic Visual Analysis Dataset
-
 
 ## Usage
 Here is an example to help you get started creating a container.  Change TRIALRUN to False when you are ready to commit changes via the API.
-### docker-compose
+### docker-composed
 ```
 version: "2.1"
 services:
@@ -33,6 +32,9 @@ services:
       - DOMAIN=[PHOTOPRISM_URL]
       - USER=[PHOTOPRISM_USER]
       - PASS=[PHOTOPRISM_PASS]
+      - EARLIESTDATE=2008-01-01
+      - LATESTDATE=2008-01-01
+      - SHORTESTEVENT=2008-01-01
       - TRIALRUN=True
 ```
  ## Parameters
@@ -44,3 +46,6 @@ services:
 | `-e USER=[username]` | Username with permissions on the PhotoPrism instance |
 | `-e PASS=[password]` | password for the user |
 | `-e TRIALRUN=[True\|False]` | indicate if changes should be commited via the API |
+| `-e EARLIESTDATE=[Year-Month-Day]` | indicates the earliest date which should be considered |
+| `-e LATESTDATE=[Year-Month-Day]` | indicates the latest date which should be considered.  Defaults to 200 years in the future.  Override if like me you have a large number of photos when setting up and the older years you want different settings than more recent ones. |
+| `-e SHORTESTEVENT=[Integer]` | filters out any event shorter than this number of days.   |
