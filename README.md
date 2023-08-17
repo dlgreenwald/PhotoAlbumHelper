@@ -1,3 +1,5 @@
+[![Github Badge](https://img.shields.io/badge/view_on-github-blue)](https://github.com/dlgreenwald/PhotoAlbumHelper) [![dockerhub Badge](https://img.shields.io/badge/view_on-docker%20hub-blue)](https://hub.docker.com/r/dlgreenwald/photoalbumhelper)
+
 # PhotoAlbumHelper
  PhotoPrismAlbumHelper is a badly named set of python scripts which provide some dynamic[^1] photo album functionality currently mising from [PhotoPrism](https://www.photoprism.app/).  Dockerfile and a docker-compose.yml file provide turnkey like behavior.  Each script will be run once a week.
 
