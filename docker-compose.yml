@@ -1,0 +1,14 @@
+version: "2.1"
+services:
+  albumhelper:
+    image: dlgreenwald/photoalbumhelper:latest
+    container_name: photoalbumhelper
+    environment:
+      - DOMAIN={PHOTOPRISM_URL}
+      - USER={PHOTOPRISM_USER}
+      - PASS={PHOTOPRISM_PASS}
+      - TRIALRUN=True
+      - EARLIESTDATE=2008-01-01
+      - LATESTDATE=2008-01-01
+      - SHORTESTEVENT=2008-01-01
+      - TRIALRUN=True
