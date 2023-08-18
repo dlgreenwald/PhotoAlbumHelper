@@ -236,11 +236,11 @@ def detectAndCreateEvents():
     min_t = Q1 - c*IQR
     max_t = Q3 + c*IQR
 
+    log("Calculating Anomoly Thresholds (min_t:{0} max_t:{1})".format(min_t, max_t))
     if max_t < 10:
         log("Threshold for an event is calculated below 10.  This will result in a large number of events.  Exiting...")
         return
 
-    log("Calculating Anomoly Thresholds (min_t:{0} max_t:{1})".format(min_t, max_t))
     #mark rows which exceed threshold
     df_daily[col+'threshold_alarm'] = (df_daily[col].clip(lower = min_t,upper=max_t) != df_daily[col])
 
