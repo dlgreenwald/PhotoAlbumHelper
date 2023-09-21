@@ -4,6 +4,7 @@ import schedule
 import time
 import timelineEvents
 import ManageTimeAlbums
+import emailAlerts
 import heartbeat
 import sys
 import threading
@@ -66,6 +67,7 @@ print("Schedualing Jobs:")
 schedule.every(30).minutes.do(run_threaded, heartbeat.beat)
 schedule.every(1).day.at("01:00").do(run_threaded, timelineEvents.detectAndCreateEvents)
 schedule.every().sunday.do(run_threaded, ManageTimeAlbums.createInPastAlbums)
+schedule.every().sunday.do(run_threaded, emailAlerts.emailAlert)
 all_jobs = schedule.get_jobs()
 for job in all_jobs:
     print(format(job))
