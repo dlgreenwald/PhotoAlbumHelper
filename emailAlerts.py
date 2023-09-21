@@ -15,10 +15,13 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 def emailAlert():
+    load_dotenv()
+    if environ.get('DISABLEEMAIL')=="True":
+        return
+
     def log(message):
         print ("Email Events: {0}".format(message))
 
-    load_dotenv()
     if environ.get('TRIALRUN')=="False":
         log( "TRIALRUN is False, commiting changes")
     else:
