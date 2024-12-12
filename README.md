@@ -34,12 +34,11 @@ services:
     image: [TBD]/photoalbumhelper:latest
     container_name: albumhelper
     environment:
-      - DOMAIN=[PHOTOPRISM_URL]
-      - USER=[PHOTOPRISM_USER]
-      - PASS=[PHOTOPRISM_PASS]
+      - PHOTOPRISM_API_KEY=[PHOTOPRISM_APP_TOKEN]
+      - PHOTOPRISM_URI=[PHOTOPRISM_URL]
       - EARLIESTDATE=2008-01-01
       - LATESTDATE=2008-01-01
-      - SHORTESTEVENT=2008-01-01
+      - SHORTESTEVENT=1
       - TRIALRUN=True
 ```
  ## Parameters
@@ -48,8 +47,7 @@ services:
 | Parameter | Function |
 | :----: | --- |
 | `-e DOMAIN=https://try.photoprism.app/` | Domain of the PhotoPrism instance |
-| `-e USER=[username]` | Username with permissions on the PhotoPrism instance |
-| `-e PASS=[password]` | password for the user |
+| `-e PHOTOPRISM_API_KEY=[photoprism app token]` | App token with permissions on the instance |
 | `-e TRIALRUN=[True\|False]` | indicate if changes should be commited via the API |
 | `-e EARLIESTDATE=[Year-Month-Day]` | indicates the earliest date which should be considered,  Defaults to 1900.  Change if you have large blocks of time with zero photos. |
 | `-e LATESTDATE=[Year-Month-Day]` | indicates the latest date which should be considered.  Defaults to 200 years in the future.  Override if like me you have a large number of photos when setting up and the older years you want different settings than more recent ones. |
