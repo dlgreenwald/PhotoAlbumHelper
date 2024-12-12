@@ -1,6 +1,4 @@
 #!/usr/local/bin/python3
-from photoprism.Session import Session
-from photoprism.Photo import Photo
 import pandas as pd
 from pandas.tseries.holiday import AbstractHolidayCalendar, Holiday, USLaborDay, USMemorialDay, USThanksgivingDay
 from pandas.tseries.offsets import Easter
