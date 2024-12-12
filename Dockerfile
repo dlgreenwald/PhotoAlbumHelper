@@ -1,4 +1,4 @@
-FROM amancevice/pandas:2.0.2-alpine
+FROM amancevice/pandas:alpine-2.2.2
 
 COPY . .
 
