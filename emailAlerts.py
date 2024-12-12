@@ -194,7 +194,7 @@ def emailAlert():
         msg.attach(part1)
         msg.attach(part2)
 
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp_server:
+        with smtplib.SMTP_SSL(environ.get('SMTP_SERVER'), environ.get('SMTP_PORT')) as smtp_server:
             smtp_server.login(sender, password)
             smtp_server.sendmail(sender, recipients, msg.as_string())
         print("Message sent!")
@@ -233,7 +233,7 @@ def emailAlert():
     sender = environ.get('SENDER')
     recipients = environ.get('RECIPIENTS').split(",")
     log(recipients)
-    smtppass = environ.get('SMTPPASS')
+    smtppass = environ.get('SMTP_PASS')
     if environ.get('TRIALRUN')=="False":
         send_email(subject, body, "fixme", sender, recipients, smtppass)
 
