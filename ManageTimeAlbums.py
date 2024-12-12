@@ -117,7 +117,11 @@ def createInPastAlbums():
     if len(photos) == 1:
         OldestYear = photos[0].year
 
+    CurrentYear, week_num, day_of_week = date.today().isocalendar()
+    log("Week #" + str(week_num))
+
     #Create all the previous year albums
+    CurrentYear, week_num, day_of_week = date.today().isocalendar()
     for year in range(OldestYear, CurrentYear):
         firstdate, lastdate = getDateRangeFromWeek(year, week_num)
         YearDiff = CurrentYear-year
@@ -141,7 +145,6 @@ def createInPastAlbums():
 
     # Create Last Week Album
     CurrentYear, week_num, day_of_week = date.today().isocalendar()
-    print("Week #" + str(week_num))
     last_week = week_num-1
     if last_week < 0:
         last_week = last_week+52
