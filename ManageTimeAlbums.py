@@ -117,18 +117,15 @@ def createInPastAlbums():
     if len(photos) == 1:
         OldestYear = photos[0].year
 
-
-    # Create Last Week Album
-    CurrentYear, week_num, day_of_week = date.today().isocalendar()
-    print("Week #" + str(week_num))
-    last_week = week_num-1
-    if last_week < 0:
-        last_week = last_week+52
-        CurrentYear = CurrentYear-1
-    firstdate, lastdate = getDateRangeFromWeek(CurrentYear, last_week)
-    log("One Week Ago: Week #{0}:{1} through {2}".format(last_week, firstdate, lastdate))
-    queryString = "after:\"{0}\" before:\"{1}\"".format(firstdate, lastdate)
-    ManageAlbum(queryString=queryString, title="Last Week")
+    #Create all the previous year albums
+    for year in range(OldestYear, CurrentYear):
+        firstdate, lastdate = getDateRangeFromWeek(year, week_num)
+        YearDiff = CurrentYear-year
+        yearstring = "Years" if YearDiff>1 else "Year"
+        title = "{0} {1} Ago This Week".format(num2words(YearDiff).capitalize(), yearstring)
+        log("{1}: Week #{0}".format(week_num, title))
+        queryString = "after:\"{0}\" before:\"{1}\"".format(firstdate, lastdate)
+        ManageAlbum(queryString=queryString, title=title)
 
     # Create Last Month Album
     CurrentYear, week_num, day_of_week = date.today().isocalendar()
@@ -142,15 +139,17 @@ def createInPastAlbums():
     queryString = "after:\"{0}\" before:\"{1}\"".format(firstdate, lastdate)
     ManageAlbum(queryString=queryString, title="One Month Ago This Week")
 
-    #Create all the previous year albums
-    for year in range(OldestYear, CurrentYear):
-        firstdate, lastdate = getDateRangeFromWeek(year, week_num)
-        YearDiff = CurrentYear-year
-        yearstring = "Years" if YearDiff>1 else "Year"
-        title = "{0} {1} Ago This Week".format(num2words(YearDiff).capitalize(), yearstring)
-        log("{1}: Week #{0}".format(week_num, title))
-        queryString = "after:\"{0}\" before:\"{1}\"".format(firstdate, lastdate)
-        ManageAlbum(queryString=queryString, title=title)
+    # Create Last Week Album
+    CurrentYear, week_num, day_of_week = date.today().isocalendar()
+    print("Week #" + str(week_num))
+    last_week = week_num-1
+    if last_week < 0:
+        last_week = last_week+52
+        CurrentYear = CurrentYear-1
+    firstdate, lastdate = getDateRangeFromWeek(CurrentYear, last_week)
+    log("One Week Ago: Week #{0}:{1} through {2}".format(last_week, firstdate, lastdate))
+    queryString = "after:\"{0}\" before:\"{1}\"".format(firstdate, lastdate)
+    ManageAlbum(queryString=queryString, title="Last Week")
 
     log("Done")
 
