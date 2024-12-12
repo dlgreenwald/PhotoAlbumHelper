@@ -20,8 +20,31 @@ from dateutil.relativedelta import (
     WE,
 )
 
+import swagger_client
+from swagger_client.rest import ApiException
+from swagger_client import FormAlbum, FormPhoto
 
-#@TODO need to create delay on the initial query to give a current event time to end....oh...or we could just ignore events that brush up against the current date.
+class FamilyCalendar(AbstractHolidayCalendar):
+    rules = [
+        Holiday("New Year's Day", month=1, day=1),
+        USMemorialDay,
+        Holiday("Independence Day", month=7, day=4),
+        USLaborDay,
+        USThanksgivingDay,
+        Holiday("Christmas Day", month=12, day=25),
+        Holiday("Easter", month=1, day=1, offset=[Easter()]),
+        Holiday("Valentine's Day", month=2, day=14),
+        Holiday("Halloween", month=10, day=31 ),
+        Holiday("St. Patrick's Day", month=3, day=17 ),
+        Holiday("Mother's Day", month=5, day=1, offset=DateOffset(weekday=SU(2))),
+        Holiday("Father's Day", month=6, day=1, offset=DateOffset(weekday=SU(3))),
+    ]
+
+weekphrase = "A Week in {0} {1} {2}"
+shorttripphrase = "A short trip to {0} {1} {2}"
+daytripphrase = "A day in {0} {1} {2} {3}"
+holidayphrase = "{0} in {1} {2}"
+
 def detectAndCreateEvents():
     def log(message):
         print ("Timeline Events: {0}".format(message))
@@ -33,111 +56,96 @@ def detectAndCreateEvents():
     else:
         log( "TRIALRUN is True, no changes will be commited")
 
-    pp_session = Session(environ.get('USER'), environ.get('PASS'), environ.get('DOMAIN'), use_https=True)
-    pp_session.create()
-    p = Photo(pp_session)
+    # Configure Photoprism_Swagger_Client
+    swagger_configuration = swagger_client.Configuration()
+    swagger_configuration.api_key =  {"Authorization":environ.get("PHOTOPRISM_API_KEY")}
+    swagger_configuration.api_key_prefix = {"Authorization":"Bearer"}
+    swagger_configuration.host = environ.get("PHOTOPRISM_URI")
 
-    def search(query, count=100, offset=0, order="newest"):
-        _, data = pp_session.req(f"/photos?count={count}&offset={offset}&merged=true&country=&camera=0&lens=0&label=&year=0&month=0&color=&order={order}&q={query}&public=true&quality=3", "GET")
+    # create an instance of the API class
+    albums_api = swagger_client.AlbumsApi(swagger_client.ApiClient(configuration = swagger_configuration))
+    photos_api = swagger_client.PhotosApi(swagger_client.ApiClient(configuration = swagger_configuration))
+
+    def search(query="", scope="", count=100, offset=0, order="newest"):
+        data = photos_api.search_photos(count=count, offset=offset, merged=True, order=order, q=query, s=scope, public=True, quality=3)
         return data
-
+    
     def create_album(title, jsonData:dict, category):
-        data = {"Title":title,"Favorite":False, "Notes": json.dumps(jsonData), "Category":category}
-        status_code, output = pp_session.req("/albums", "POST", data=data)
-
-        if status_code == 200:
+        try:
+            output = albums_api.create_album(FormAlbum(title=title, favorite=False, notes=json.dumps(jsonData), category=category))
             return output
-        
-        return False
+        except:
+            return False
 
     def update_album(uid, title, jsonData:dict, category):
-        data = {"Title":title,"Favorite":False, "Notes": json.dumps(jsonData), "Category":category}
-        status_code, output = pp_session.req(f"/albums/{uid}", "PUT", data=data)
-
-        if status_code == 200:
+        try:
+            output = albums_api.update_album(uid=uid, album=FormAlbum(title=title, favorite=False, notes=json.dumps(jsonData), category=category))
             return output
+        except:
+            return False
         
-        return False
-
-    def findOrCreateAlbumById(name, jsonData:dict, category):
-        albumlist = p.list_albums()
+    def updateOrCreateAlbumByHash(name, jsonData:dict, category):
+        albumlist = albums_api.search_albums(1000, q=name)
         uid = ""
         for album in albumlist:
-            if album['Notes'] != "" and json.loads(album['Notes'])['Hash']==jsonData['Hash']:
-                uid = album['UID']
+            album = album.to_dict()
+            if album['notes'] != "" and json.loads(album['notes'])['Hash']==jsonData['Hash']:
+                uid = album['uid']
         if uid == "":
             body = create_album(name, jsonData, category)
-            uid = body['UID']
-            update_album(uid, name, jsonData, category)
+            uid = body['uid']
+            update_album(uid, name, jsonData, category) # why did I do this?!
         return uid
 
     def find_album_by_note(note):
-        albumlist = p.list_albums()
+        albumlist = albums_api.search_albums(1000)
         uid = ""
         for album in albumlist:
-            if album['Notes']==note:
-                uid = album['UID']
+            album = album.to_dict()
+            if album['notes']==note:
+                uid = album['uid']
         return uid
 
-    #this is an expensive way to solve this problem as it iterates across the entire set of photos in albums, but with no dates in album metadata it is all we can do.    
+    # iterate across all albums, looking at hidden notes field for metadata about the album date string
     def find_most_recent_album_date_in_category(category):
-        albumlist = p.list_albums()
+        albumlist = albums_api.search_albums(1000)
         uid = ""
         recentDate = dt.datetime.strptime("1900-01-01T00:00:00Z", '%Y-%m-%dT%H:%M:%SZ')
         for album in albumlist:
-            if album['Category']==category:
-                jsonData = json.loads(album['Notes'])
+            album = album.to_dict()
+            if album['category']==category:
+                jsonData = json.loads(album['notes'])
                 albumdatestring = "{0}-{1}-{2}".format(jsonData['year'], jsonData['month'], jsonData["day"])
                 albumdate = dt.datetime.strptime(albumdatestring, '%Y-%m-%d')
                 if albumdate > recentDate:
                     recentDate = albumdate
-
-                # photos = search(query="type:image|live album:\"{0}\"".format(album['UID']), count=500, offset=0,  order="newest")
-                # for photo in photos:
-                #     # format 2023-08-15T22:17:34Z
-                #     date = dt.datetime.strptime(photo['TakenAt'], '%Y-%m-%dT%H:%M:%SZ')
-                #     if date > recentDate:
-                #         recentDate = date
-
         return recentDate
 
-    def replace_album_from_query(query, albumname, jsonData:dict, albumcategory, count=1000000, offset=0, order="newest"):
-            album_uid = findOrCreateAlbumById(albumname, jsonData, albumcategory)
+    def replace_album_from_query(query, albumname, jsonData:dict, albumcategory, count=1000000):
+            album_uid = updateOrCreateAlbumByHash(albumname, jsonData, albumcategory)
             remove_photos_from_album_by_uid(album_uid)
-            photolist = p.get_uid_list_of_search(query, count=count, offset=offset, order=order)
-            result = p.add_photos_to_album(photolist, album_uid)
+            
+
+            photos_in_album = []
+            photos = search(query=query, count=count)
+            for photo in photos:
+                photos_in_album.append(photo.uid)
+
+
+            result = albums_api.add_photos_to_album(uid=album_uid, photos={"photos":photos_in_album})
             return result
 
-    def remove_photos_from_album_by_uid(album_uid, photos=False, count=1000000):
-        albumname = p.get_album(album_uid)['Title']
-        if photos == False:
-            query = f"album:\"{albumname}\""
-            photos = p.get_uid_list_of_search(query,count=count)
-
-        data = {
-            "photos":photos
-        }
-        status_code, _ = pp_session.req(f"/albums/{album_uid}/photos", "DELETE", data=data)
-        if status_code == 200:
+    def remove_photos_from_album_by_uid(album_uid, count=1000000):
+        try:
+            photos_in_album = []
+            if photos == False:
+                photos = search(scope=album_uid, count=count)
+                for photo in photos:
+                    photos_in_album.append(photo.uid)
+            albums_api.remove_photos_from_album(uid=album_uid, photos={"photos":photos_in_album})
             return True
-
-        return False
-
-    class FamilyCalendar(AbstractHolidayCalendar):
-        rules = [
-            Holiday("New Year's Day", month=1, day=1),
-            USMemorialDay,
-            Holiday("Independence Day", month=7, day=4),
-            USLaborDay,
-            USThanksgivingDay,
-            Holiday("Christmas Day", month=12, day=25),
-            Holiday("Easter", month=1, day=1, offset=[Easter()]),
-            Holiday("Valentine's Day", month=2, day=14),
-            Holiday("Halloween", month=10, day=31 ),
-            Holiday("St. Patrick's Day", month=3, day=17 ),
-            Holiday("Mother's Day", month=5, day=1, offset=DateOffset(weekday=SU(2))),
-            Holiday("Father's Day", month=6, day=1, offset=DateOffset(weekday=SU(3))),
-        ]
+        except:
+            return False
 
     def count_elements(seq) -> dict:
         hist = {}
@@ -190,13 +198,21 @@ def detectAndCreateEvents():
             # Nothing worked...perhaps we are looking at untagged photos.  Regardless, set possibleName to "Unknown"
             PossibleName = "Unknown"    
 
+    
         return PossibleName
+    
 
+    #
+    # Main Logic
+    #
     count = 5000
     offset = 0
     timeline = []
     ones = []
-    while data := search(query="type:image|live after:\"{0}\" before:{1}".format(environ.get('EARLIESTDATE'), environ.get('LATESTDATE')), count=count, offset=offset,  order="newest"):
+    startDate = '' if environ.get('EARLIESTDATE') is None else str(environ.get('EARLIESTDATE'))
+    endDate = '' if environ.get('LATESTDATE') is None else str(environ.get('LATESTDATE'))
+
+    while data := search(query="type:image|live after:{0} before:{1}".format(startDate, endDate), count=count, offset=offset):
         if not len(data)>0:
             log("Done building complete timeline")
             break
@@ -204,9 +220,11 @@ def detectAndCreateEvents():
 
         #collect all photos into a timeline
         for photo in data:
-            timeline.append(photo['TakenAt'])
+            photo = photo.to_dict()
+            timeline.append(photo['taken_at'])
             ones.append(1)
         offset = offset+count
+
     log("Number of Photos in timeline:{0}".format(len(timeline)))
 
     #turn the timeline into a dataframe
@@ -357,26 +375,22 @@ def detectAndCreateEvents():
             end_date = row["end_date+1"]
             query = "after:\"{0}\" before:\"{1}\"".format(start_date, end_date)
             queries.append({'query':query, 'length':row['length'], 'year':row['year'], 'month':row['month'], 'day':row['day'], 'holiday':row['holiday']})
-
-    weekphrase = "A Week in {0} {1} {2}"
-    shorttripphrase = "A short trip to {0} {1} {2}"
-    daytripphrase = "A day in {0} {1} {2} {3}"
-    holidayphrase = "{0} in {1} {2}"
-
+ 
     # for each query calucate a location string, select a phrase to use, and check if an album with note=query hash already exists and if not create the album
     log("Creating Event Albums")
     counter = 0
     for query in queries:
         if query['length'] < int(environ.get('SHORTESTEVENT')):
             continue
-        data = p.search(query=query['query'], count=1000, offset=0,  order="newest")
+        data = search(query=query['query'], count=1000, offset=0,  order="newest")
         PossibleCities = []
         PossibleStates = []
         PossibleCountries = []
         for photo in data:
-            PossibleCities.append(photo['PlaceCity'])
-            PossibleStates.append(photo['PlaceState'])
-            PossibleCountries.append(photo['PlaceCountry'])
+            photo = photo.to_dict()
+            PossibleCities.append(photo['place_city'])
+            PossibleStates.append(photo['place_state'])
+            PossibleCountries.append(photo['place_country'])
         location = determineName(PossibleCities, PossibleStates, PossibleCountries)
 
         if query['holiday']!=("None"):
@@ -407,4 +421,5 @@ def detectAndCreateEvents():
     log("{0} Events created.  Job Complete.".format(counter))
 
 if __name__=="__main__":
+    load_dotenv()
     detectAndCreateEvents()
