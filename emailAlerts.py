@@ -3,8 +3,6 @@ from chameleon import PageTemplateLoader
 import datetime as dt  
 from dotenv import load_dotenv
 from os import environ
-from photoprism.Session import Session
-from photoprism.Photo import Photo
 from lib.photocollage.UserCollage import UserCollage, Options
 import lib.photocollage.render as render
 from PIL import Image
@@ -14,8 +12,14 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
+import swagger_client
+from swagger_client.rest import ApiException
+from swagger_client import FormAlbum, FormPhoto
+
+from pprint import pprint
+import traceback
+
 def emailAlert():
-    load_dotenv()
     if environ.get('DISABLEEMAIL')=="True":
         return
 
@@ -34,65 +38,71 @@ def emailAlert():
     if not os.path.exists(workingDir):
         os.makedirs(workingDir)
     
+    # Configure Photoprism_Swagger_Client
+    swagger_configuration = swagger_client.Configuration()
+    swagger_configuration.api_key =  {"Authorization":environ.get("PHOTOPRISM_API_KEY")}
+    swagger_configuration.api_key_prefix = {"Authorization":"Bearer"}
+    swagger_configuration.host = environ.get("PHOTOPRISM_URI")
 
-    pp_session = Session(environ.get('USER'), environ.get('PASS'), environ.get('DOMAIN'), use_https=True)
-    pp_session.create()
-    p = Photo(pp_session)
+    # create an instance of the API class
+    albums_api = swagger_client.AlbumsApi(swagger_client.ApiClient(configuration = swagger_configuration))
+    photos_api = swagger_client.PhotosApi(swagger_client.ApiClient(configuration = swagger_configuration))
+    files_api = swagger_client.FilesApi(swagger_client.ApiClient(configuration = swagger_configuration))
+    auth_api = swagger_client.AuthenticationApi(swagger_client.ApiClient(configuration = swagger_configuration))
 
     week_num = dt.date.today().isocalendar().week-1
     log("WeekNum = {0}".format(week_num))
 
-    def search(query, count=100, offset=0, order="newest"):
-        _, data = pp_session.req(f"/photos?count={count}&offset={offset}&merged=true&country=&camera=0&lens=0&label=&year=0&month=0&color=&order={order}&q={query}&public=true&quality=3", "GET")
+    def search(query="", scope="", count=100, offset=0, order="newest"):
+        data = photos_api.search_photos(count=count, offset=offset, merged=True, order=order, q=query, s=scope, public=True, quality=3)
         return data
 
     def getAlbumsFromThisWeekInPast():
         matchedAlbums = []
-        albumlist = p.list_albums()
+        albumlist = albums_api.search_albums(1000)
         uid = ""
         for album in albumlist:
-            if album['Type']=="album":
-                photos = search(query="type:image|live album:\"{0}\"".format(album['UID']), count=1, offset=0,  order="newest")
-                # format 2023-08-15T22:17:34Z
-                date = dt.datetime.strptime(photos[0]['TakenAt'], '%Y-%m-%dT%H:%M:%SZ')
-                album["startDate"] = date
-                enddate = dt.datetime.strptime(photos[-1]['TakenAt'], '%Y-%m-%dT%H:%M:%SZ')
-                album["endDate"] = enddate
-                if date.isocalendar().week==week_num:
-                    log("Candidate Album: {0} Date:{1} Week:{2}".format(album['Title'], date, date.isocalendar().week))
-                    matchedAlbums.append(album)
+            album = album.to_dict()
+            if album['type']=="album":
+                photos = search(query="type:image|live album:\"{0}\"".format(album['uid']), count=1, offset=0,  order="newest")
+                if (len(photos)>0):
+                    # format 2023-08-15T22:17:34Z
+                    date = dt.datetime.strptime(photos[0].taken_at, '%Y-%m-%dT%H:%M:%SZ')
+                    album["startDate"] = date
+                    enddate = dt.datetime.strptime(photos[-1].taken_at, '%Y-%m-%dT%H:%M:%SZ')
+                    album["endDate"] = enddate
+                    if date.isocalendar().week==week_num:
+                        log("Candidate Album: {0} Date:{1} Week:{2}".format(album['title'], date, date.isocalendar().week))
+                        matchedAlbums.append(album)
+                else:
+                    log("Empty Album: {0}".format(album['title']))
         return matchedAlbums
     
     def sortAlbumsByPriority(albums):
         for album in albums:
             score = 0
-            match album['Category']:
+            match album['category']:
                 case "In the Past":
-                    score = album['PhotoCount']/7
+                    score = album['photo_count']/7
                 case "Generated Event":
-                    score = album['PhotoCount']*2
+                    score = album['photo_count']*2
                 case _:
-                    score = album['PhotoCount']*3
+                    score = album['photo_count']*3
             album['score'] = score
         albums.sort(key= lambda x: x['score'], reverse=True)
         return albums
     
     def downloadPhotosFromList(selection):
+        session = auth_api.api_v1_session_post()
         filelist= []
         for photos in selection:
             try:
-                p.download_file(photos["Hash"], path=workingDir, filename=photos["UID"])
-            except:
+                filename = files_api.get_download(photos.hash, t=session.config.download_token)
+            except Exception:
+                traceback.print_exc()
                 continue
 
-            filename = ""
-            if os.path.exists("{0}/{1}.{2}".format(workingDir, photos["UID"], "jpg")):
-                filename = photos["UID"]+".jpg"
-            elif os.path.exists("{0}/{1}.{2}".format(workingDir, photos["UID"], "png")):
-                filename = photos["UID"]+".png"
-            else:
-                continue
-            filelist.append("{0}/{1}".format(workingDir,filename))
+            filelist.append(filename)
         return filelist
     
     def deleteFilesFromList(filelist):
@@ -104,7 +114,7 @@ def emailAlert():
 
 
     def downloadRandomPhotosFromAlbum(album):
-        data = search(query="type:image|live album:\"{0}\"".format(album['UID']), count=100, offset=0,  order="newest")
+        data = search(query="type:image|live album:\"{0}\"".format(album['uid']), count=100, offset=0,  order="newest")
 
         size = 0
         if len(data)<10:
@@ -144,7 +154,7 @@ def emailAlert():
         def on_failure(e):
             log(e)
 
-        log("Rendering Collage for {0}".format(title))
+        log("Rendering Collage for {0} size {1}".format(title, len(filelist)))
         t = render.RenderingTask(
             new_collage.page, 
             quality=render.QUALITY_BEST,
@@ -201,10 +211,10 @@ def emailAlert():
         allFiles = allFiles + pair
 
         record = dict()
-        record["mainphoto"] = "{0}/{1}-{2}/{3}".format(environ.get('URIPREFIX'), dt.date.today().isocalendar().week, dt.date.today().isocalendar().year, generateCollageForAlbum(candidate["Title"], candidate["UID"], filelist, 640, 853))
-        record["secondaryphoto"] = "{0}/{1}-{2}/{3}".format(environ.get('URIPREFIX'), dt.date.today().isocalendar().week, dt.date.today().isocalendar().year, generateCollageForAlbum(candidate["Title"], candidate["UID"], pair, 405, 188))
-        record["title"] = candidate["Title"]
-        record["uri"] = "{0}/library/albums/{1}/view".format(environ.get('PHOTOPRISMURI'), candidate["UID"])
+        record["mainphoto"] = "{0}/{1}-{2}/{3}".format(environ.get('STATIC_URI'), dt.date.today().isocalendar().week, dt.date.today().isocalendar().year, generateCollageForAlbum(candidate["title"], candidate["uid"], filelist, 640, 853))
+        record["secondaryphoto"] = "{0}/{1}-{2}/{3}".format(environ.get('STATIC_URI'), dt.date.today().isocalendar().week, dt.date.today().isocalendar().year, generateCollageForAlbum(candidate["title"], candidate["uid"], pair, 405, 188))
+        record["title"] = candidate["title"]
+        record["uri"] = "{0}/library/albums/{1}/view".format(environ.get('PHOTOPRISM_URI'), candidate["uid"])
         record["dateString"] = "{0} - {1}".format(candidate["startDate"], candidate["endDate"])
         renderData.append(record)
 
@@ -218,7 +228,7 @@ def emailAlert():
     background.paste(foreground, (0, 0), foreground)
     background.save("{0}/{1}-final.jpg".format(workingDir, bannerFile))
 
-    body = renderHTML("{0}/{1}-{2}/{3}-final.jpg".format(environ.get('URIPREFIX'), dt.date.today().isocalendar().week, dt.date.today().isocalendar().year, bannerFile), environ.get('PHOTOPRISMURI'),  "This Week in the Past", renderData)
+    body = renderHTML("{0}/{1}-{2}/{3}-final.jpg".format(environ.get('STATIC_URI'), dt.date.today().isocalendar().week, dt.date.today().isocalendar().year, bannerFile), environ.get('PHOTOPRISM_URI'),  "This Week in the Past", renderData)
     subject = "This Week in the Past"
     sender = environ.get('SENDER')
     recipients = environ.get('RECIPIENTS').split(",")
@@ -245,4 +255,5 @@ def emailAlert():
 # Send email
 
 if __name__=="__main__":
+    load_dotenv()
     emailAlert()
