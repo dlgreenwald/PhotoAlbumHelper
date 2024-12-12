@@ -216,10 +216,16 @@ class RESTClientObject(object):
         if _preload_content:
             r = RESTResponse(r)
 
-            # In the python 3, the response.data is bytes.
-            # we need to decode it to string.
+            ### START OF MANUAL PATCH
+            # see https://github.com/swagger-api/swagger-codegen/issues/2305
+            # In Python3, the `response.data` is bytes, so we need to decode it into str.
             if six.PY3:
-                r.data = r.data.decode('utf8')
+                try:
+                    r.data = r.data.decode('utf8')
+                except:
+                    # some requests are not strings so we can't decode them
+                    pass
+            ### END OF MANUAL PATCH
 
             # log response body
             logger.debug("response body: %s", r.data)

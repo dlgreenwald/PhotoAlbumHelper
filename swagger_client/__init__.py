@@ -81,7 +81,12 @@ from swagger_client.models.entity_photo import EntityPhoto
 from swagger_client.models.entity_photo_label import EntityPhotoLabel
 from swagger_client.models.entity_place import EntityPlace
 from swagger_client.models.entity_service import EntityService
+from swagger_client.models.entity_session import EntitySession
+from swagger_client.models.entity_session_data import EntitySessionData
+from swagger_client.models.entity_settings import EntitySettings
 from swagger_client.models.entity_subject import EntitySubject
+from swagger_client.models.entity_user import EntityUser
+from swagger_client.models.entity_user_details import EntityUserDetails
 from swagger_client.models.env_resources import EnvResources
 from swagger_client.models.env_resources_memory import EnvResourcesMemory
 from swagger_client.models.form_album import FormAlbum

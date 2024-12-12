@@ -3,6 +3,9 @@ info:
   description: |-
     API request bodies and responses are usually JSON-encoded, except for binary data and some of the OAuth2 endpoints. Note that the `Content-Type` header must be set to `application/json` for this, as the request may otherwise fail with error 400.
     When clients have a valid access token, e.g. obtained through the `POST /api/v1/session` or `POST /api/v1/oauth/token` endpoint, they can use a standard Bearer Authorization header to authenticate their requests. Submitting the access token with a custom `X-Auth-Token` header is supported as well.
+
+    When generating client for python3 this is an issue
+    https://github.com/swagger-api/swagger-codegen/issues/2305
   title: PhotoPrism API
   contact: {}
   version: v1
@@ -1125,6 +1128,11 @@ paths:
           name: hash
           in: path
           required: true
+        - type: string
+          description: download token recieved from /api/v1/session
+          name: t
+          in: query
+          required: true
       responses:
         '200':
           description: OK
@@ -2145,6 +2153,11 @@ paths:
           name: uid
           in: path
           required: true
+        - type: string
+          description: download token recieved from /api/v1/session
+          name: t
+          in: query
+          required: true
       responses:
         '200':
           description: OK
@@ -2879,9 +2892,15 @@ paths:
     post:
       security:
         - Bearer: []
+      produces:
+        - application/json
       tags:
         - Authentication
-      responses: {}
+      responses:
+        '200':
+          description: OK
+          schema:
+            $ref: '#/definitions/entity.Session'
   /api/v1/sessions:
     post:
       security:
@@ -4803,6 +4822,148 @@ definitions:
         type: string
       UpdatedAt:
         type: string
+  entity.Session:
+    type: object
+    properties:
+      config:
+        $ref: '#/definitions/config.ClientConfig'
+      data:
+        $ref: '#/entity/SessionData'
+      expires_in:
+        type: integer
+      provider:
+        type: string
+      scope:
+        type: string
+      session_id:
+        type: string
+      status:
+        type: string
+      user:
+        $ref: '#/entity/User'
+  entity.User:
+    type: object
+    properties:
+      ID:
+        type: integer
+      UID:
+        type: string
+      AuthProvider:
+        type: string
+      AuthMethod:
+        type: string
+      AuthID:
+        type: string
+      Name:
+        type: string
+      DisplayName:
+        type: string
+      Email:
+        type: string
+      Role:
+        type: string
+      Attr:  
+        type: string
+      SuperAdmin:
+        type: boolean
+      CanLogin:
+        type: boolean
+      LoginAt:
+        type: string
+      WebDav:
+        type: boolean
+      BasePath:
+        type: string
+      UploadPath:
+        type: string
+      CanInvite:
+        type: boolean
+      VerifiedAt:
+        type: string
+      Details:
+        $ref: '#/entity/UserDetails'
+      Settings:
+        $ref: '#/entity/Settings'
+      Thumb:
+        type: string
+      ThumbSrc:
+        type: string
+      CreatedAt:
+        type: string
+      UpdatedAt:
+        type: string
+  entity.UserDetails:
+    type: object
+    properties:
+      BirthYear:
+        type: integer
+      BirthMonth:
+        type: integer
+      BirthDay:
+        type: integer
+      NameTitle:
+        type: string
+      GivenName:
+        type: string
+      MiddleName:
+        type: string
+      FamilyName:
+        type: string
+      NameSuffix:
+        type: string
+      NickName:
+        type: string
+      NameSrc:
+        type: string
+      Gender:
+        type: string
+      About:
+        type: string
+      Bio:
+        type: string
+      Location:
+        type: string
+      Country:
+        type: string
+      Phone:
+        type: string
+      SiteURL:
+        type: string
+      ProfileURL:
+        type: string
+      OrgTitle:
+        type: string
+      OrgName:
+        type: string
+      OrgEmail:
+        type: string
+      OrgPhone:
+        type: string
+      OrgURL:
+        type: string
+      CreatedAt:
+        type: string
+      UpdatedAt:
+        type: string
+  entity.Settings:
+    type: object
+    properties:
+      IndexPath:
+        type: string
+      IndexRescan:
+        type: integer
+      CreatedAt:
+        type: string
+      UpdatedAt:
+        type: string
+  entity.SessionData:
+    type: object
+    properties:
+      token:
+        type: string
+      shares:
+        type: string
+        
   env.Resources:
     type: object
     properties:

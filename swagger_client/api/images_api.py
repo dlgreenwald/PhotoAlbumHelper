@@ -344,43 +344,45 @@ class ImagesApi(object):
             _request_timeout=params.get('_request_timeout'),
             collection_formats=collection_formats)
 
-    def get_download(self, hash, **kwargs):  # noqa: E501
+    def get_download(self, hash, t, **kwargs):  # noqa: E501
         """returns the raw file data  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.get_download(hash, async_req=True)
+        >>> thread = api.get_download(hash, t, async_req=True)
         >>> result = thread.get()
 
         :param async_req bool
         :param str hash: File Hash (required)
+        :param str t: download token recieved from /api/v1/session (required)
         :return: file
                  If the method is called asynchronously,
                  returns the request thread.
         """
         kwargs['_return_http_data_only'] = True
         if kwargs.get('async_req'):
-            return self.get_download_with_http_info(hash, **kwargs)  # noqa: E501
+            return self.get_download_with_http_info(hash, t, **kwargs)  # noqa: E501
         else:
-            (data) = self.get_download_with_http_info(hash, **kwargs)  # noqa: E501
+            (data) = self.get_download_with_http_info(hash, t, **kwargs)  # noqa: E501
             return data
 
-    def get_download_with_http_info(self, hash, **kwargs):  # noqa: E501
+    def get_download_with_http_info(self, hash, t, **kwargs):  # noqa: E501
         """returns the raw file data  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.get_download_with_http_info(hash, async_req=True)
+        >>> thread = api.get_download_with_http_info(hash, t, async_req=True)
         >>> result = thread.get()
 
         :param async_req bool
         :param str hash: File Hash (required)
+        :param str t: download token recieved from /api/v1/session (required)
         :return: file
                  If the method is called asynchronously,
                  returns the request thread.
         """
 
-        all_params = ['hash']  # noqa: E501
+        all_params = ['hash', 't']  # noqa: E501
         all_params.append('async_req')
         all_params.append('_return_http_data_only')
         all_params.append('_preload_content')
@@ -399,6 +401,10 @@ class ImagesApi(object):
         if self.api_client.client_side_validation and ('hash' not in params or
                                                        params['hash'] is None):  # noqa: E501
             raise ValueError("Missing the required parameter `hash` when calling `get_download`")  # noqa: E501
+        # verify the required parameter 't' is set
+        if self.api_client.client_side_validation and ('t' not in params or
+                                                       params['t'] is None):  # noqa: E501
+            raise ValueError("Missing the required parameter `t` when calling `get_download`")  # noqa: E501
 
         collection_formats = {}
 
@@ -407,6 +413,8 @@ class ImagesApi(object):
             path_params['hash'] = params['hash']  # noqa: E501
 
         query_params = []
+        if 't' in params:
+            query_params.append(('t', params['t']))  # noqa: E501
 
         header_params = {}
 
@@ -437,43 +445,45 @@ class ImagesApi(object):
             _request_timeout=params.get('_request_timeout'),
             collection_formats=collection_formats)
 
-    def get_photo_download(self, uid, **kwargs):  # noqa: E501
+    def get_photo_download(self, uid, t, **kwargs):  # noqa: E501
         """returns the primary file matching that belongs to the photo  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.get_photo_download(uid, async_req=True)
+        >>> thread = api.get_photo_download(uid, t, async_req=True)
         >>> result = thread.get()
 
         :param async_req bool
         :param str uid: photo uid (required)
+        :param str t: download token recieved from /api/v1/session (required)
         :return: file
                  If the method is called asynchronously,
                  returns the request thread.
         """
         kwargs['_return_http_data_only'] = True
         if kwargs.get('async_req'):
-            return self.get_photo_download_with_http_info(uid, **kwargs)  # noqa: E501
+            return self.get_photo_download_with_http_info(uid, t, **kwargs)  # noqa: E501
         else:
-            (data) = self.get_photo_download_with_http_info(uid, **kwargs)  # noqa: E501
+            (data) = self.get_photo_download_with_http_info(uid, t, **kwargs)  # noqa: E501
             return data
 
-    def get_photo_download_with_http_info(self, uid, **kwargs):  # noqa: E501
+    def get_photo_download_with_http_info(self, uid, t, **kwargs):  # noqa: E501
         """returns the primary file matching that belongs to the photo  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.get_photo_download_with_http_info(uid, async_req=True)
+        >>> thread = api.get_photo_download_with_http_info(uid, t, async_req=True)
         >>> result = thread.get()
 
         :param async_req bool
         :param str uid: photo uid (required)
+        :param str t: download token recieved from /api/v1/session (required)
         :return: file
                  If the method is called asynchronously,
                  returns the request thread.
         """
 
-        all_params = ['uid']  # noqa: E501
+        all_params = ['uid', 't']  # noqa: E501
         all_params.append('async_req')
         all_params.append('_return_http_data_only')
         all_params.append('_preload_content')
@@ -492,6 +502,10 @@ class ImagesApi(object):
         if self.api_client.client_side_validation and ('uid' not in params or
                                                        params['uid'] is None):  # noqa: E501
             raise ValueError("Missing the required parameter `uid` when calling `get_photo_download`")  # noqa: E501
+        # verify the required parameter 't' is set
+        if self.api_client.client_side_validation and ('t' not in params or
+                                                       params['t'] is None):  # noqa: E501
+            raise ValueError("Missing the required parameter `t` when calling `get_photo_download`")  # noqa: E501
 
         collection_formats = {}
 
@@ -500,6 +514,8 @@ class ImagesApi(object):
             path_params['uid'] = params['uid']  # noqa: E501
 
         query_params = []
+        if 't' in params:
+            query_params.append(('t', params['t']))  # noqa: E501
 
         header_params = {}
 

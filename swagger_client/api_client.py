@@ -534,7 +534,11 @@ class ApiClient(object):
                                  content_disposition).group(1)
             path = os.path.join(os.path.dirname(path), filename)
 
-        with open(path, "w") as f:
+        ### START OF MANUAL PATCH
+        # see https://github.com/swagger-api/swagger-codegen/issues/2305
+        # In Python3, the `response.data` is bytes, so we need to open the file in a way where it is writeable as bytes
+        with open(path, "wb") as f:
+        ### END OF MANUAL PATCH
             f.write(response.data)
 
         return path
