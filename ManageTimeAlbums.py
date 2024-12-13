@@ -1,5 +1,6 @@
 #!/usr/local/bin/python3
 from datetime import date
+import time
 from datetime import datetime
 from datetime import timedelta
 from num2words import num2words
@@ -71,40 +72,39 @@ def createInPastAlbums():
         except:
             return False
         
-    def add_to_album_from_query(query, album_uid, count=1000000):
+
+
+    def ManageAlbum(queryString, title, count=100):
+
         photos_in_album = []
-        photos = search(query=query, count=count)
+        photos = search(query=queryString, count=count)
         for photo in photos:
             photos_in_album.append(photo.uid)
 
+        if len(photos_in_album) > 0 :
+            album_uid = find_album_by_title(title)
+            if album_uid:
+                log("'{0}` already exists, clearing photos".format(title))
+                if environ.get('TRIALRUN')=="False":
+                    remove_photos_from_album_by_uid(album_uid)
+            else:
+                log("Creating Album `{0}`".format(title))
+                if environ.get('TRIALRUN')=="False":
+                    body = create_album(title, category="In The Past")
+                    album_uid = body.uid
+                    # update_album(uid, title, category="In The Past")
 
-        result = albums_api.add_photos_to_album(uid=album_uid, photos={"photos":photos_in_album})
-        return result
+            if environ.get('TRIALRUN')=="False":
+                albums_api.add_photos_to_album(uid=album_uid, photos={"photos":photos_in_album})
+                log("Album `{0}` photos inserted".format(title))
+            
+        else:
+            album_uid = find_album_by_title(title)
+            if album_uid:
+                log("'{0}` already exists and is empty, Deleting".format(title))
+                if environ.get('TRIALRUN')=="False":
+                    albums_api.delete_album(album_uid)
 
-    def ManageAlbum(queryString, title, count=100):
-        album_uid = find_album_by_title(title)
-        if album_uid:
-            log("'{0}` already exists, clearing photos".format(title))
-            if environ.get('TRIALRUN')=="False":
-                remove_photos_from_album_by_uid(album_uid)
-        else:
-            log("Creating Album `{0}`".format(title))
-            if environ.get('TRIALRUN')=="False":
-                body = create_album(title, category="In The Past")
-                uid = body['UID']
-                update_album(uid, title, category="In The Past")
-        #Unlike all the other places where if TRIAL run is False we want to perform an action, 
-        #in this case the second half of the if statement should only be run if trial run isnt' true. 
-        #The OR should result in p.add... only being run if TRIALRUN is False
-        if environ.get('TRIALRUN')=="True" or add_to_album_from_query(query=queryString, album_uid=album_uid, count=count):
-            log("Album `{0}` photos inserted".format(title))
-            return True
-        else:
-            #cleanup if photos can't be inserted....usually becuase there are no photos, so we won't have a album for this week.
-            log("Album `{0}` photos failed to insert.  Deleteing Album.".format(title))
-            if environ.get('TRIALRUN')=="False":
-                albums_api.delete_album(album_uid)
-            return False
 
     if environ.get('TRIALRUN')=="False":
         log( "TRIALRUN is False, commiting changes")
