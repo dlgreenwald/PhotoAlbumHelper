@@ -91,7 +91,7 @@ def detectAndCreateEvents():
                 uid = album['uid']
         if uid == "":
             body = create_album(name, jsonData, category)
-            uid = body['uid']
+            uid = body.uid
             update_album(uid, name, jsonData, category) # why did I do this?!
         return uid
 
@@ -119,7 +119,7 @@ def detectAndCreateEvents():
                     recentDate = albumdate
         return recentDate
 
-    def replace_album_from_query(query, albumname, jsonData:dict, albumcategory, count=1000000):
+    def replace_album_from_query(query, albumname, jsonData:dict, albumcategory, count=100000):
             album_uid = updateOrCreateAlbumByHash(albumname, jsonData, albumcategory)
             remove_photos_from_album_by_uid(album_uid)
             
