@@ -4,11 +4,18 @@ services:
     image: dlgreenwald/photoalbumhelper:latest
     container_name: photoalbumhelper
     environment:
-      - DOMAIN={PHOTOPRISM_URL}
-      - USER={PHOTOPRISM_USER}
-      - PASS={PHOTOPRISM_PASS}
+      - PHOTOPRISM_URI={PHOTOPRISM_URI}
+      - STATIC_URI={STATIC_URI}
+      - PHOTOPRISM_API_KEY={PHOTOPRISM_API_KEY}
+
       - TRIALRUN=True
       - EARLIESTDATE=2008-01-01
-      - LATESTDATE=2008-01-01
-      - SHORTESTEVENT=2008-01-01
-      - TRIALRUN=True
+
+      - FILEPATH=/static # Path to write static files which will be located at {STATIC_UR}
+      - SHORTESTEVENT=1
+
+      - RECIPIENTS={RECIPIENTS} # Comma seperated list of email recipients
+      - SENDER={SENDER}
+      - SMTP_PASS={SMTP_PASS}
+      - SMTP_SERVER={SMTP_SERVER}
+      - SMTP_PORT={SMTP_PORT}
