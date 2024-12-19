@@ -82,13 +82,13 @@ def schedule_and_run():
 
             #setup progress bar for next job
             progress = 0
-            sleep_len =  next_job/78
+            sleep_len =  next_job/40
             last_wait = next_job
             all_jobs = schedule.get_jobs()
             for job in all_jobs:
                 print(format(job))
-            print("0                 25                  50                 75               100")
-            print("-----------------------------------------------------------------------------")
+            print("0                 50                 100")
+            print("----------------------------------------")
         time.sleep(sleep_len)
 
 
