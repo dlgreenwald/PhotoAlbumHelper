@@ -1,5 +1,6 @@
 import time
 import threading
+import sys
 
 import schedule
 from dotenv import load_dotenv
@@ -21,10 +22,7 @@ def format(job):
     def is_repr(j):
         return not isinstance(j, schedule.Job)
 
-    timestats = "(last run: %s, next run: %s)" % (
-        format_time(job.last_run),
-        format_time(job.next_run),
-    )
+    timestats = f"(last run: {format_time(job.last_run)}, next run: {format_time(job.next_run)})"
 
     if hasattr(job.job_func, "__name__"):
         job_func_name = job.job_func.__name__
@@ -39,13 +37,7 @@ def format(job):
         call_repr = "[None]"
 
     if job.at_time is not None:
-        return "Every %s %s at %s do %s %s" % (
-            job.interval,
-            job.unit[:-1] if job.interval == 1 else job.unit,
-            job.at_time,
-            call_repr,
-            timestats,
-        )
+        return f"Every {job.interval} {job.unit[:-1] if job.interval == 1 else job.unit} at {job.at_time} do {call_repr} {timestats}"
     else:
         fmt = (
             "Every %(interval)s "
@@ -61,34 +53,42 @@ def format(job):
             timestats=timestats,
         )
 
+CURSOR_UP_ONE = '\x1b[1A'
+ERASE_LINE = '\x1b[2K'
+
 def schedule_and_run():
     print("Scheduling Jobs:")
-    #    schedule.every(30).minutes.do(run_threaded, heartbeat.beat)
     schedule.every(1).day.at("01:00").do(run_threaded, timelineEvents.detectAndCreateEvents)
     schedule.every().sunday.do(run_threaded, ManageTimeAlbums.create_in_past_albums)
     schedule.every().sunday.do(run_threaded, emailAlerts.emailAlert)
 
     last_wait = -1
-
+    progress = 0
     sleep_len = 1
     while True:
         next_job = schedule.idle_seconds()
         if last_wait > next_job:
             # We are continuing to progress towards the next job
             last_wait = next_job
-            print("*", flush=True, end="")
+            progress = progress +1
+            sys.stdout.write(ERASE_LINE) 
+            print("*" * progress)
+            sys.stdout.write(CURSOR_UP_ONE) 
         else:
             # We will start a new job
             print("\n")
             schedule.run_pending()
+            next_job = schedule.idle_seconds()
 
-            sleep_len =  next_job/100
+            #setup progress bar for next job
+            progress = 0
+            sleep_len =  next_job/78
             last_wait = next_job
             all_jobs = schedule.get_jobs()
             for job in all_jobs:
                 print(format(job))
-            print("0                       25                        50                       75                     100")
-            print("-----------------------------------------------------------------------------------------------------")
+            print("0                 25                  50                 75               100")
+            print("-----------------------------------------------------------------------------")
         time.sleep(sleep_len)
 
 
