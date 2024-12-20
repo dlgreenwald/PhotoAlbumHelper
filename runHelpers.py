@@ -62,14 +62,13 @@ def schedule_and_run():
     schedule.every().sunday.do(run_threaded, ManageTimeAlbums.create_in_past_albums)
     schedule.every().sunday.do(run_threaded, emailAlerts.emailAlert)
 
-    last_wait = -1
+    init = True
     progress = 0
     sleep_len = 1
     while True:
         next_job = schedule.idle_seconds()
-        if last_wait > next_job:
+        if next_job > 0 and not init:
             # We are continuing to progress towards the next job
-            last_wait = next_job
             progress = progress +1
             sys.stdout.write(ERASE_LINE) 
             print("*" * progress)
@@ -81,9 +80,9 @@ def schedule_and_run():
             next_job = schedule.idle_seconds()
 
             #setup progress bar for next job
+            init = False
             progress = 0
             sleep_len =  next_job/40
-            last_wait = next_job
             all_jobs = schedule.get_jobs()
             for job in all_jobs:
                 print(format(job))
