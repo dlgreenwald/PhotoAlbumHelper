@@ -78,6 +78,10 @@ def schedule_and_run():
             print("\n")
             schedule.run_pending()
             next_job = schedule.idle_seconds()
+            threads = threading.enumerate()
+            for thread in threads:
+                if thread.name != "MainThread":
+                    thread.join()
 
             #setup progress bar for next job
             init = False
